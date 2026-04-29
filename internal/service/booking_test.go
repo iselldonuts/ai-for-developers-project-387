@@ -48,6 +48,10 @@ type bookingEventTypeStoreStub struct {
 	err  error
 }
 
+func (s bookingEventTypeStoreStub) ListEventTypes(_ context.Context) ([]model.EventType, error) {
+	return []model.EventType{s.item}, s.err
+}
+
 func (s bookingEventTypeStoreStub) GetEventTypeByID(_ context.Context, _ string) (model.EventType, error) {
 	return s.item, s.err
 }

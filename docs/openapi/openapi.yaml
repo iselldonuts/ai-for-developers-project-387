@@ -415,12 +415,30 @@ components:
     UpcomingBookingItem:
       type: object
       required:
+        - id
+        - eventTypeId
+        - guestName
+        - guestEmail
+        - startsAt
+        - endsAt
         - eventTypeTitle
       properties:
+        id:
+          type: string
+        eventTypeId:
+          type: string
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
         eventTypeTitle:
           type: string
-      allOf:
-        - $ref: '#/components/schemas/Booking'
     UpcomingBookingsResponse:
       type: object
       required:

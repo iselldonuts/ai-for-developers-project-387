@@ -75,6 +75,14 @@ export interface Booking {
   endsAt: string;
 }
 
+export interface UpcomingBookingItem extends Booking {
+  eventTypeTitle: string;
+}
+
+export interface UpcomingBookingsResponse {
+  items: UpcomingBookingItem[];
+}
+
 export interface CreateBookingRequest {
   eventTypeId: ID;
   guestName: string;

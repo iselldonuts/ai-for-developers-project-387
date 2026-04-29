@@ -19,6 +19,7 @@ type BookingStore interface {
 }
 
 type BookingEventTypeStore interface {
+	ListEventTypes(ctx context.Context) ([]model.EventType, error)
 	GetEventTypeByID(ctx context.Context, eventTypeID string) (model.EventType, error)
 }
 
@@ -56,6 +57,51 @@ func NewBookingService(
 
 func (s BookingService) List(ctx context.Context) ([]model.Booking, error) {
 	return s.bookingStore.ListBookings(ctx)
+}
+
+func (s BookingService) ListUpcoming(ctx context.Context, from time.Time) (dto.UpcomingBookingsResult, error) {
+	bookings, err := s.bookingStore.ListBookings(ctx)
+	if err != nil {
+		return dto.UpcomingBookingsResult{}, err
+	}
+
+	eventTypes, err := s.eventTypeStore.ListEventTypes(ctx)
+	if err != nil {
+		return dto.UpcomingBookingsResult{}, err
+	}
+
+	titlesByID := make(map[string]string, len(eventTypes))
+	for _, eventType := range eventTypes {
+		titlesByID[eventType.ID] = eventType.Title
+	}
+
+	from = from.UTC()
+	items := make([]dto.BookingListItem, 0, len(bookings))
+	for _, booking := range bookings {
+		if booking.EndsAt.UTC().Before(from) {
+			continue
+		}
+
+		items = append(items, dto.BookingListItem{
+			BookingID:      booking.ID,
+			EventTypeID:    booking.EventTypeID,
+			EventTypeTitle: titlesByID[booking.EventTypeID],
+			GuestName:      booking.GuestName,
+			GuestEmail:     booking.GuestEmail,
+			StartsAt:       booking.StartsAt.UTC(),
+			EndsAt:         booking.EndsAt.UTC(),
+		})
+	}
+
+	slices.SortFunc(items, func(left dto.BookingListItem, right dto.BookingListItem) int {
+		if comparison := left.StartsAt.Compare(right.StartsAt); comparison != 0 {
+			return comparison
+		}
+
+		return strings.Compare(left.BookingID, right.BookingID)
+	})
+
+	return dto.UpcomingBookingsResult{Items: items}, nil
 }
 
 func (s BookingService) ListSlots(ctx context.Context, eventTypeID string, from time.Time, to time.Time) ([]model.Slot, error) {
