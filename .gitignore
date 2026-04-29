@@ -1,0 +1,20 @@
+.DS_Store
+.idea/
+.vscode/
+
+# Go
+bin/
+coverage.out
+
+# Env
+.env
+
+# Node
+node_modules/
+typespec/node_modules/
+web/node_modules/
+web/dist/
+web/*.tsbuildinfo
+
+# Logs
+*.log

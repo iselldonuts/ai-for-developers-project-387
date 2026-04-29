@@ -1,0 +1,452 @@
+openapi: 3.0.0
+info:
+  title: CalCal API
+  version: 0.0.0
+tags:
+  - name: Owner
+  - name: Public
+paths:
+  /bookings:
+    post:
+      operationId: PublicBookingsApi_create
+      description: Create a booking for the selected start time. The server must reject the request with 409 when the requested interval overlaps any existing booking, regardless of event type.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedBookingResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+        '409':
+          description: Returned when the requested time interval overlaps with an existing booking, even if the event type is different.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingConflictError'
+      tags:
+        - Public
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+  /event-types:
+    get:
+      operationId: PublicEventTypesApi_list
+      description: Public catalog of bookable event types visible to guests.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventTypeListResponse'
+      tags:
+        - Public
+  /event-types/{eventTypeId}/slots:
+    get:
+      operationId: PublicEventTypesApi_listSlots
+      description: List computed free slots for the selected event type and date range. Slots are derived from owner availability and exclude conflicting bookings.
+      parameters:
+        - name: eventTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          explode: false
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlotListResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+      tags:
+        - Public
+  /owner/availability:
+    get:
+      operationId: OwnerAvailabilityApi_getAvailability
+      description: Read owner availability windows that define when slots can be offered.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityResponse'
+      tags:
+        - Owner
+    put:
+      operationId: OwnerAvailabilityApi_updateAvailability
+      description: Replace owner availability windows for the weekly schedule.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatedAvailabilityResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+      tags:
+        - Owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAvailabilityRequest'
+  /owner/bookings/upcoming:
+    get:
+      operationId: OwnerBookingsApi_listUpcoming
+      description: List upcoming bookings for all event types in a single owner-facing list.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpcomingBookingsResponse'
+      tags:
+        - Owner
+  /owner/event-types:
+    get:
+      operationId: OwnerEventTypesApi_list
+      description: List all event types configured by the owner.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventTypeListResponse'
+      tags:
+        - Owner
+    post:
+      operationId: OwnerEventTypesApi_create
+      description: Create a new event type with a required duration in minutes.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedEventTypeResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadRequestError'
+      tags:
+        - Owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventTypeRequest'
+components:
+  schemas:
+    AvailabilityResponse:
+      type: object
+      required:
+        - owner
+        - windows
+      properties:
+        owner:
+          $ref: '#/components/schemas/OwnerProfile'
+        windows:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilityWindow'
+    AvailabilityWindow:
+      type: object
+      required:
+        - dayOfWeek
+        - startTime
+        - endTime
+      properties:
+        dayOfWeek:
+          type: string
+          enum:
+            - monday
+            - tuesday
+            - wednesday
+            - thursday
+            - friday
+            - saturday
+            - sunday
+        startTime:
+          type: string
+          description: Local start time in HH:MM format.
+        endTime:
+          type: string
+          description: Local end time in HH:MM format.
+      description: Owner-defined availability window for a specific day of week.
+    BadRequestError:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+    Booking:
+      type: object
+      required:
+        - id
+        - eventTypeId
+        - guestName
+        - guestEmail
+        - startsAt
+        - endsAt
+      properties:
+        id:
+          type: string
+        eventTypeId:
+          type: string
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+      description: Confirmed booking created by a guest without registration.
+    BookingConflictError:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+      description: Returned when the requested time interval overlaps with an existing booking, even if the event type is different.
+    BookingResponse:
+      type: object
+      required:
+        - booking
+      properties:
+        booking:
+          $ref: '#/components/schemas/Booking'
+    CreateBookingRequest:
+      type: object
+      required:
+        - eventTypeId
+        - guestName
+        - guestEmail
+        - startsAt
+      properties:
+        eventTypeId:
+          type: string
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+    CreateEventTypeRequest:
+      type: object
+      required:
+        - title
+        - description
+        - durationMinutes
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+    CreatedBookingResponse:
+      type: object
+      required:
+        - booking
+      properties:
+        booking:
+          $ref: '#/components/schemas/Booking'
+    CreatedEventTypeResponse:
+      type: object
+      required:
+        - eventType
+      properties:
+        eventType:
+          $ref: '#/components/schemas/EventType'
+    ErrorBody:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    EventType:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - durationMinutes
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+      description: Bookable event type configured by the calendar owner.
+    EventTypeListResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventType'
+    NotFoundError:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+    OwnerProfile:
+      type: object
+      required:
+        - id
+        - displayName
+        - timezone
+      properties:
+        id:
+          type: string
+        displayName:
+          type: string
+        timezone:
+          type: string
+      description: Single calendar owner profile. It is configured ahead of time and does not authenticate in v1.
+    Slot:
+      type: object
+      required:
+        - eventTypeId
+        - startsAt
+        - endsAt
+        - durationMinutes
+      properties:
+        eventTypeId:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        durationMinutes:
+          type: integer
+          format: int32
+      description: Computed free slot for a specific event type.
+    SlotListResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+    UpcomingBookingItem:
+      type: object
+      required:
+        - eventTypeTitle
+      properties:
+        eventTypeTitle:
+          type: string
+      allOf:
+        - $ref: '#/components/schemas/Booking'
+    UpcomingBookingsResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpcomingBookingItem'
+    UpdateAvailabilityRequest:
+      type: object
+      required:
+        - windows
+      properties:
+        windows:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilityWindow'
+    UpdatedAvailabilityResponse:
+      type: object
+      required:
+        - availability
+      properties:
+        availability:
+          $ref: '#/components/schemas/AvailabilityResponse'
+servers:
+  - url: http://localhost:8080
+    description: Local development
+    variables: {}
