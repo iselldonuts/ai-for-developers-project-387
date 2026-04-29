@@ -15,6 +15,7 @@ typespec/node_modules/
 web/node_modules/
 web/dist/
 web/*.tsbuildinfo
+lighthouse-reports/
 
 # Logs
 *.log
