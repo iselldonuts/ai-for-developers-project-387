@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/iselldonuts/ai-for-developers-project-386/internal/dto"
 	"github.com/iselldonuts/ai-for-developers-project-386/internal/errs"
@@ -114,8 +115,14 @@ func (h APIHandler) OwnerAvailabilityApiUpdateAvailability(w http.ResponseWriter
 	})
 }
 
-func (h APIHandler) OwnerBookingsApiListUpcoming(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, httpapi.UpcomingBookingsResponse{Items: []httpapi.UpcomingBookingItem{}})
+func (h APIHandler) OwnerBookingsApiListUpcoming(w http.ResponseWriter, r *http.Request) {
+	result, err := h.bookingService.ListUpcoming(r.Context(), time.Now())
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, httpapi.UpcomingBookingsResponse{Items: mapUpcomingBookings(result.Items)})
 }
 
 func (h APIHandler) OwnerEventTypesApiList(w http.ResponseWriter, r *http.Request) {
@@ -272,4 +279,22 @@ func mapBooking(item model.Booking) httpapi.Booking {
 		StartsAt:    item.StartsAt.UTC(),
 		EndsAt:      item.EndsAt.UTC(),
 	}
+}
+
+func mapUpcomingBookings(items []dto.BookingListItem) []httpapi.UpcomingBookingItem {
+	result := make([]httpapi.UpcomingBookingItem, 0, len(items))
+
+	for _, item := range items {
+		result = append(result, httpapi.UpcomingBookingItem{
+			Id:             item.BookingID,
+			EventTypeId:    item.EventTypeID,
+			EventTypeTitle: item.EventTypeTitle,
+			GuestName:      item.GuestName,
+			GuestEmail:     item.GuestEmail,
+			StartsAt:       item.StartsAt.UTC(),
+			EndsAt:         item.EndsAt.UTC(),
+		})
+	}
+
+	return result
 }

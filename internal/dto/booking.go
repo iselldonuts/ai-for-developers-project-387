@@ -14,10 +14,11 @@ type UpcomingBookingsResult struct {
 }
 
 type BookingListItem struct {
-	BookingID       string
-	EventTypeTitle  string
-	GuestName       string
-	GuestEmail      string
-	StartsAt        time.Time
-	DurationMinutes int
+	BookingID      string
+	EventTypeID    string
+	EventTypeTitle string
+	GuestName      string
+	GuestEmail     string
+	StartsAt       time.Time
+	EndsAt         time.Time
 }

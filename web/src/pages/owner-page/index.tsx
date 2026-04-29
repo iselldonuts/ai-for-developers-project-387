@@ -27,6 +27,7 @@ import type {
   AvailabilityWindow,
   DayOfWeek,
   EventType,
+  UpcomingBookingItem,
 } from "../../types";
 
 const orderedDays: Array<{ key: DayOfWeek; shortLabel: string; fullLabel: string }> = [
@@ -147,6 +148,24 @@ function formatAvailabilitySummary(windows: AvailabilityWindow[]): string {
   return `${windows.length} ${windows.length === 1 ? "день" : windows.length < 5 ? "дня" : "дней"} в неделю`;
 }
 
+function formatBookingTimeRange(booking: UpcomingBookingItem, timezone?: string): string {
+  const dateFormatter = new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: timezone,
+  });
+  const timeFormatter = new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: timezone,
+  });
+
+  return `${dateFormatter.format(new Date(booking.startsAt))} - ${timeFormatter.format(new Date(booking.endsAt))}`;
+}
+
 export function OwnerPage() {
   const [ownerProfile, setOwnerProfile] = useState<AvailabilityResponse["owner"] | null>(null);
   const [availabilityForm, setAvailabilityForm] = useState<AvailabilityFormState>(
@@ -164,19 +183,26 @@ export function OwnerPage() {
   const [isLoadingEventTypes, setIsLoadingEventTypes] = useState(true);
   const [isCreatingEventType, setIsCreatingEventType] = useState(false);
 
+  const [upcomingBookings, setUpcomingBookings] = useState<UpcomingBookingItem[]>([]);
+  const [bookingsError, setBookingsError] = useState<string | null>(null);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(true);
+
   useEffect(() => {
     let isCancelled = false;
 
     async function loadOwnerData() {
       setIsLoadingAvailability(true);
       setIsLoadingEventTypes(true);
+      setIsLoadingBookings(true);
       setAvailabilityError(null);
       setEventTypesError(null);
+      setBookingsError(null);
 
       try {
-        const [availabilityResponse, eventTypesResponse] = await Promise.all([
+        const [availabilityResponse, eventTypesResponse, bookingsResponse] = await Promise.all([
           apiClient.owner.getAvailability(),
           apiClient.owner.listEventTypes(),
+          apiClient.owner.listUpcomingBookings(),
         ]);
 
         if (isCancelled) {
@@ -186,6 +212,7 @@ export function OwnerPage() {
         setOwnerProfile(availabilityResponse.owner);
         setAvailabilityForm(mapWindowsToForm(availabilityResponse.windows));
         setEventTypes(eventTypesResponse.items);
+        setUpcomingBookings(bookingsResponse.items);
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Не удалось загрузить данные владельца.";
@@ -193,11 +220,13 @@ export function OwnerPage() {
         if (!isCancelled) {
           setAvailabilityError(message);
           setEventTypesError(message);
+          setBookingsError(message);
         }
       } finally {
         if (!isCancelled) {
           setIsLoadingAvailability(false);
           setIsLoadingEventTypes(false);
+          setIsLoadingBookings(false);
         }
       }
     }
@@ -555,6 +584,74 @@ export function OwnerPage() {
             </Stack>
           </Card>
         </SimpleGrid>
+
+        <Card radius="lg" shadow="sm" padding="lg" withBorder>
+          <Stack gap="lg">
+            <Group justify="space-between" align="center">
+              <Group gap="sm">
+                <ThemeIcon size="lg" radius="md" variant="light" color="teal">
+                  <IconCalendarClock size={20} />
+                </ThemeIcon>
+                <div>
+                  <Title order={3}>Предстоящие записи</Title>
+                  <Text size="sm" c="dimmed">
+                    Кто записался и на какое время
+                  </Text>
+                </div>
+              </Group>
+              <Badge color="teal" variant="light">
+                {upcomingBookings.length} шт.
+              </Badge>
+            </Group>
+
+            {bookingsError ? <Alert color="red">{bookingsError}</Alert> : null}
+
+            {isLoadingBookings ? (
+              <Group justify="center" py="xl">
+                <Loader size="sm" />
+              </Group>
+            ) : upcomingBookings.length === 0 ? (
+              <Alert color="blue" variant="light">
+                Предстоящих записей пока нет.
+              </Alert>
+            ) : (
+              <Table.ScrollContainer minWidth={760}>
+                <Table verticalSpacing="md" striped highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Гость</Table.Th>
+                      <Table.Th>Email</Table.Th>
+                      <Table.Th>Событие</Table.Th>
+                      <Table.Th>Время</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {upcomingBookings.map((booking) => (
+                      <Table.Tr key={booking.id}>
+                        <Table.Td>
+                          <Text fw={600}>{booking.guestName}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{booking.guestEmail}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge variant="light" color="orange">
+                            {booking.eventTypeTitle || booking.eventTypeId}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">
+                            {formatBookingTimeRange(booking, ownerProfile?.timezone)}
+                          </Text>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Table.ScrollContainer>
+            )}
+          </Stack>
+        </Card>
       </Stack>
     </PageShell>
   );

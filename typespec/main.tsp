@@ -59,7 +59,8 @@ model Booking {
   endsAt: utcDateTime;
 }
 
-model UpcomingBookingItem extends Booking {
+model UpcomingBookingItem {
+  ...Booking;
   eventTypeTitle: string;
 }
 

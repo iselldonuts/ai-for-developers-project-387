@@ -9,6 +9,7 @@ import type {
   SlotListResponse,
   UpdateAvailabilityRequest,
   UpdatedAvailabilityResponse,
+  UpcomingBookingsResponse,
 } from "../types";
 
 class ApiError extends Error {
@@ -81,6 +82,9 @@ export const apiClient = {
     },
     listEventTypes() {
       return request<EventTypeListResponse>("/owner/event-types");
+    },
+    listUpcomingBookings() {
+      return request<UpcomingBookingsResponse>("/owner/bookings/upcoming");
     },
     createEventType(body: CreateEventTypeRequest) {
       return request<CreatedEventTypeResponse>("/owner/event-types", {

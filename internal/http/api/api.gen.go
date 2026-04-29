@@ -164,8 +164,16 @@ type SlotListResponse struct {
 	Items []Slot `json:"items"`
 }
 
-// UpcomingBookingItem Confirmed booking created by a guest without registration.
-type UpcomingBookingItem = Booking
+// UpcomingBookingItem defines model for UpcomingBookingItem.
+type UpcomingBookingItem struct {
+	EndsAt         time.Time `json:"endsAt"`
+	EventTypeId    string    `json:"eventTypeId"`
+	EventTypeTitle string    `json:"eventTypeTitle"`
+	GuestEmail     string    `json:"guestEmail"`
+	GuestName      string    `json:"guestName"`
+	Id             string    `json:"id"`
+	StartsAt       time.Time `json:"startsAt"`
+}
 
 // UpcomingBookingsResponse defines model for UpcomingBookingsResponse.
 type UpcomingBookingsResponse struct {

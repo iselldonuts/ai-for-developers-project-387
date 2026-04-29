@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -9,19 +10,27 @@ import (
 	"time"
 
 	"github.com/iselldonuts/ai-for-developers-project-386/internal/dto"
+	httpapi "github.com/iselldonuts/ai-for-developers-project-386/internal/http/api"
 	"github.com/iselldonuts/ai-for-developers-project-386/internal/model"
 	"github.com/iselldonuts/ai-for-developers-project-386/internal/service"
 )
 
 type eventTypeStoreStub struct {
+	items    []model.EventType
 	createFn func(ctx context.Context, input dto.CreateEventTypeInput) (model.EventType, error)
 }
 
 func (s *eventTypeStoreStub) ListEventTypes(_ context.Context) ([]model.EventType, error) {
-	return nil, nil
+	return s.items, nil
 }
 
 func (s *eventTypeStoreStub) GetEventTypeByID(_ context.Context, eventTypeID string) (model.EventType, error) {
+	for _, item := range s.items {
+		if item.ID == eventTypeID {
+			return item, nil
+		}
+	}
+
 	return model.EventType{
 		ID:              eventTypeID,
 		Title:           "Lesson",
@@ -210,5 +219,72 @@ func TestPublicBookingsApiCreateReturnsConflictWhenSlotIsTaken(t *testing.T) {
 
 	if response.Code != http.StatusConflict {
 		t.Fatalf("expected status 409, got %d", response.Code)
+	}
+}
+
+func TestOwnerBookingsApiListUpcomingReturnsBookingsWithEventTypeTitle(t *testing.T) {
+	t.Parallel()
+
+	eventTypeStore := &eventTypeStoreStub{
+		items: []model.EventType{
+			{ID: "evt_1", Title: "Intro call", Description: "", DurationMinutes: 30},
+		},
+	}
+	handler := NewAPIHandler(
+		service.NewAvailabilityService(
+			ownerStoreStub{owner: model.OwnerProfile{ID: "owner_1", DisplayName: "Owner", Timezone: "UTC"}},
+			&availabilityStoreStub{},
+			txManagerStub{},
+		),
+		service.NewBookingService(
+			&bookingStoreStub{
+				bookings: []model.Booking{
+					{
+						ID:          "bkg_past",
+						EventTypeID: "evt_1",
+						GuestName:   "Past Guest",
+						GuestEmail:  "past@example.com",
+						StartsAt:    time.Date(2020, time.January, 1, 9, 0, 0, 0, time.UTC),
+						EndsAt:      time.Date(2020, time.January, 1, 9, 30, 0, 0, time.UTC),
+					},
+					{
+						ID:          "bkg_future",
+						EventTypeID: "evt_1",
+						GuestName:   "Future Guest",
+						GuestEmail:  "future@example.com",
+						StartsAt:    time.Date(2035, time.January, 1, 9, 0, 0, 0, time.UTC),
+						EndsAt:      time.Date(2035, time.January, 1, 9, 30, 0, 0, time.UTC),
+					},
+				},
+			},
+			eventTypeStore,
+			ownerStoreStub{owner: model.OwnerProfile{ID: "owner_1", DisplayName: "Owner", Timezone: "UTC"}},
+			&availabilityStoreStub{},
+			txManagerStub{},
+		),
+		service.NewEventTypeService(eventTypeStore, txManagerStub{}),
+	)
+
+	request := httptest.NewRequest(http.MethodGet, "/owner/bookings/upcoming", nil)
+	response := httptest.NewRecorder()
+
+	handler.OwnerBookingsApiListUpcoming(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", response.Code)
+	}
+
+	var body httpapi.UpcomingBookingsResponse
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+		t.Fatalf("expected valid response body, got %v", err)
+	}
+	if len(body.Items) != 1 {
+		t.Fatalf("expected one upcoming booking, got %d", len(body.Items))
+	}
+	if body.Items[0].Id != "bkg_future" {
+		t.Fatalf("expected future booking, got %s", body.Items[0].Id)
+	}
+	if body.Items[0].EventTypeTitle != "Intro call" {
+		t.Fatalf("expected event type title, got %q", body.Items[0].EventTypeTitle)
 	}
 }
